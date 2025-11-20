@@ -1,0 +1,164 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import io, os, textwrap
+
+np.random.seed(42)
+n = 250
+# Synthetic data (if you have titanic.csv, replace this block with: df = pd.read_csv('titanic.csv'))
+sex = np.random.choice(['male','female'], size=n, p=[0.6,0.4])
+pclass = np.random.choice([1,2,3], size=n, p=[0.24,0.2,0.56])
+age = np.random.normal(loc=30, scale=14, size=n).round(1)
+age[np.random.choice(n, size=int(n*0.18), replace=False)] = np.nan  # missing ages
+sibsp = np.random.poisson(0.6, size=n)
+parch = np.random.poisson(0.4, size=n)
+fare = (np.where(pclass==1, np.random.normal(80,30,n),
+                 np.where(pclass==2, np.random.normal(30,10,n),
+                          np.random.normal(15,7,n))))
+fare = np.clip(fare, 0, None).round(2)
+embarked = np.random.choice(['C','Q','S'], size=n, p=[0.2,0.1,0.7])
+deck = np.random.choice([np.nan,'A','B','C','D','E','F','G'], size=n, p=[0.75,0.03,0.03,0.04,0.04,0.04,0.03,0.04])
+
+surv_prob = np.where(sex=='female', 0.65, 0.2)
+surv_prob *= np.where(pclass==1, 1.3, np.where(pclass==2, 1.0, 0.7))
+child_mask = (age < 12).astype(float)
+surv_prob += 0.10 * child_mask
+surv_prob = np.clip(surv_prob, 0, 0.95)
+survived = np.random.binomial(1, surv_prob)
+
+df = pd.DataFrame({
+    'survived': survived,
+    'pclass': pclass,
+    'sex': sex,
+    'age': age,
+    'sibsp': sibsp,
+    'parch': parch,
+    'fare': fare,
+    'embarked': embarked,
+    'deck': deck
+})
+df['who'] = np.where(df['age'] < 16, 'child', np.where(df['sex']=='male','man','woman'))
+df['adult_male'] = np.where((df['age']>=18)&(df['sex']=='male'), True, False)
+df['embark_town'] = df['embarked'].map({'C':'Cherbourg','Q':'Queenstown','S':'Southampton'})
+df['alive'] = np.where(df['survived']==1, 'yes','no')
+df['alone'] = np.where((df['sibsp']+df['parch'])==0, True, False)
+
+out_dir = "./titanic_synth_outputs"
+os.makedirs(out_dir, exist_ok=True)
+
+# 1) Head snapshot
+head_df = df.head(8)
+head_df.to_csv(os.path.join(out_dir, "01_head.csv"), index=False)
+print("Saved: 01_head.csv")
+
+# 2) df.info() -> text image
+buf = io.StringIO()
+df.info(buf=buf)
+info_text = buf.getvalue()
+fig, ax = plt.subplots(figsize=(8,3))
+ax.axis('off')
+wrapped = "\n".join(textwrap.wrap(info_text, width=120))
+ax.text(0, 0.95, "df.info()", fontsize=12, va='top', family='monospace')
+ax.text(0, 0.05, wrapped, fontsize=9, va='bottom', family='monospace')
+info_path = os.path.join(out_dir, "02_info.png")
+plt.savefig(info_path, bbox_inches='tight'); plt.close(fig)
+print(f"Saved: {info_path}")
+
+# 3) describe -> CSV
+desc = df.describe(include='all').transpose()
+desc.reset_index().to_csv(os.path.join(out_dir, "03_describe.csv"), index=False)
+print("Saved: 03_describe.csv")
+
+# 4) Missing values count -> bar chart
+null_counts = df.isnull().sum().sort_values(ascending=False)
+fig, ax = plt.subplots(figsize=(8,4))
+ax.barh(null_counts.index, null_counts.values)
+ax.set_xlabel("Missing value count")
+ax.set_title("Missing values per column")
+for i, v in enumerate(null_counts.values):
+    ax.text(v + 0.2, i, str(int(v)), va='center')
+plt.tight_layout()
+mv_path = os.path.join(out_dir, "04_missing_values.png")
+plt.savefig(mv_path); plt.close(fig)
+null_counts.to_csv(os.path.join(out_dir, "04_missing_values.csv"), header=['missing_count'])
+print(f"Saved: {mv_path} and 04_missing_values.csv")
+
+# 5) Cleaning: fill age median, fill embarked mode, drop deck
+before_nulls = df.isnull().sum()
+df['age'] = df['age'].fillna(df['age'].median())
+if 'embarked' in df.columns:
+    df['embarked'] = df['embarked'].fillna(df['embarked'].mode()[0])
+if 'deck' in df.columns:
+    df = df.drop(columns=['deck'])
+after_nulls = df.isnull().sum()
+nulls_df = pd.DataFrame({'before': before_nulls, 'after': after_nulls})
+nulls_df.to_csv(os.path.join(out_dir, "05_nulls_before_after.csv"))
+print("Saved: 05_nulls_before_after.csv")
+
+fig, ax = plt.subplots(figsize=(8,4))
+width = 0.35
+y = np.arange(len(nulls_df))
+ax.barh(y - width/2, nulls_df['before'], height=width, label='before')
+ax.barh(y + width/2, nulls_df['after'], height=width, label='after')
+ax.set_yticks(y); ax.set_yticklabels(nulls_df.index)
+ax.set_xlabel("Count"); ax.set_title("Missing values: before vs after cleaning"); ax.legend()
+plt.tight_layout()
+plt.savefig(os.path.join(out_dir, "05_nulls_before_after.png")); plt.close(fig)
+print("Saved: 05_nulls_before_after.png")
+
+# 6) Mean age by survival and crosstab sex vs survival
+group_age = df.groupby('survived')['age'].mean().reset_index().rename(columns={'age':'mean_age'})
+crosstab_sex = pd.crosstab(df['sex'], df['survived'])
+group_age.to_csv(os.path.join(out_dir, "06_mean_age_by_survived.csv"), index=False)
+crosstab_sex.to_csv(os.path.join(out_dir, "06_crosstab_sex_survived.csv"))
+print("Saved: 06_mean_age_by_survived.csv and 06_crosstab_sex_survived.csv")
+
+fig, ax = plt.subplots(figsize=(6,3))
+ax.bar(group_age['survived'].astype(str), group_age['mean_age'])
+ax.set_xlabel("Survived"); ax.set_ylabel("Mean Age"); ax.set_title("Mean Age by Survival")
+for i, v in enumerate(group_age['mean_age']):
+    ax.text(i, v + 0.3, f"{v:.2f}", ha='center')
+plt.tight_layout(); plt.savefig(os.path.join(out_dir, "06_mean_age_by_survived.png")); plt.close(fig)
+print("Saved: 06_mean_age_by_survived.png")
+
+# 7) Age histogram
+fig, ax = plt.subplots(figsize=(8,4))
+ax.hist(df['age'].dropna(), bins=30)
+ax.set_title("Age Distribution (after filling missing ages)")
+ax.set_xlabel("Age"); ax.set_ylabel("Count")
+plt.tight_layout(); plt.savefig(os.path.join(out_dir, "07_age_distribution.png")); plt.close(fig)
+print("Saved: 07_age_distribution.png")
+
+# 8) Survival by pclass
+pclass_ct = pd.crosstab(df['pclass'], df['survived'])
+pclass_ct.to_csv(os.path.join(out_dir, "08_survival_by_pclass.csv"))
+fig, ax = plt.subplots(figsize=(6,4))
+pclass_ct.plot(kind='bar', stacked=False, ax=ax)
+ax.set_xlabel("Pclass"); ax.set_ylabel("Count"); ax.set_title("Survival by Passenger Class (counts)")
+plt.tight_layout(); plt.savefig(os.path.join(out_dir, "08_survival_by_pclass.png")); plt.close(fig)
+print("Saved: 08_survival_by_pclass.png and CSV")
+
+# 9) Survival by sex
+sex_ct = pd.crosstab(df['sex'], df['survived'])
+sex_ct.to_csv(os.path.join(out_dir, "09_survival_by_sex.csv"))
+fig, ax = plt.subplots(figsize=(6,4))
+sex_ct.plot(kind='bar', stacked=False, ax=ax)
+ax.set_xlabel("Sex"); ax.set_ylabel("Count"); ax.set_title("Survival by Sex (counts)")
+plt.tight_layout(); plt.savefig(os.path.join(out_dir, "09_survival_by_sex.png")); plt.close(fig)
+print("Saved: 09_survival_by_sex.png and CSV")
+
+# 10) Correlation matrix for numeric columns
+numeric = df.select_dtypes(include=[np.number]).copy()
+corr = numeric.corr()
+fig, ax = plt.subplots(figsize=(6,5))
+cax = ax.imshow(corr, interpolation='nearest', vmin=-1, vmax=1)
+ax.set_xticks(np.arange(len(corr.columns))); ax.set_yticks(np.arange(len(corr.index)))
+ax.set_xticklabels(corr.columns, rotation=45, ha='right'); ax.set_yticklabels(corr.index)
+for (i, j), val in np.ndenumerate(corr.values):
+    ax.text(j, i, f"{val:.2f}", ha='center', va='center', fontsize=8)
+fig.colorbar(cax, ax=ax)
+ax.set_title("Correlation matrix (numeric features)")
+plt.tight_layout(); plt.savefig(os.path.join(out_dir, "10_correlation_matrix.png")); plt.close(fig)
+print("Saved: 10_correlation_matrix.png")
+
+print("All outputs saved to folder:", out_dir)
