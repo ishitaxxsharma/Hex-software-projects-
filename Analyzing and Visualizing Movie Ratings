@@ -1,0 +1,93 @@
+# ---------------------------------------------------------
+# 📌 1. IMPORT ALL REQUIRED LIBRARIES
+# ---------------------------------------------------------
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, 
+    f1_score, confusion_matrix, classification_report, 
+    roc_curve, auc
+)
+
+# ---------------------------------------------------------
+# 📌 2. PREDICT ON TEST SET
+# ---------------------------------------------------------
+y_pred = model.predict(X_test)
+
+# ---------------------------------------------------------
+# 📌 3. PRINT METRICS
+# ---------------------------------------------------------
+print("========== MODEL EVALUATION ==========")
+print("Accuracy: ", accuracy_score(y_test, y_pred))
+print("Precision:", precision_score(y_test, y_pred))
+print("Recall:   ", recall_score(y_test, y_pred))
+print("F1 Score: ", f1_score(y_test, y_pred))
+
+# ---------------------------------------------------------
+# 📌 4. CLASSIFICATION REPORT
+# ---------------------------------------------------------
+print("\n========== CLASSIFICATION REPORT ==========")
+print(classification_report(y_test, y_pred))
+
+# ---------------------------------------------------------
+# 📌 5. CONFUSION MATRIX + HEATMAP
+# ---------------------------------------------------------
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(7,5))
+sns.heatmap(cm, annot=True, cmap="Blues", fmt='d')
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
+
+# ---------------------------------------------------------
+# 📌 6. TRAIN vs TEST ACCURACY GRAPH
+# ---------------------------------------------------------
+train_acc = model.score(X_train, y_train)
+test_acc  = model.score(X_test, y_test)
+
+plt.figure(figsize=(6,5))
+plt.bar(["Train Accuracy", "Test Accuracy"], [train_acc, test_acc])
+plt.title("Train vs Test Accuracy")
+plt.ylabel("Accuracy")
+plt.ylim(0,1)
+plt.show()
+
+# ---------------------------------------------------------
+# 📌 7. ROC – AUC CURVE
+# ---------------------------------------------------------
+if hasattr(model, "predict_proba"):
+    y_prob = model.predict_proba(X_test)[:, 1]
+
+    fpr, tpr, thresholds = roc_curve(y_test, y_prob)
+    roc_auc = auc(fpr, tpr)
+
+    plt.figure(figsize=(6,5))
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.2f}")
+    plt.plot([0,1], [0,1], linestyle="--")
+    plt.title("ROC–AUC Curve")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend()
+    plt.show()
+else:
+    print("\nModel does not support predict_proba() → ROC-AUC cannot be plotted.")
+
+# ---------------------------------------------------------
+# 📌 8. FEATURE IMPORTANCE (RandomForest / XGBoost / Tree models)
+# ---------------------------------------------------------
+if hasattr(model, "feature_importances_"):
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    features = X_train.columns
+
+    plt.figure(figsize=(8,6))
+    sns.barplot(x=importances[indices], y=features[indices])
+    plt.title("Feature Importance")
+    plt.xlabel("Importance Score")
+    plt.ylabel("Feature")
+    plt.show()
+else:
+    print("\nModel has no feature_importances_ attribute (skip feature importance).")
