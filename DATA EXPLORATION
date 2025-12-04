@@ -1,0 +1,84 @@
+# ============================================================
+#   IRIS DATASET EXPLORATION - COMPLETE SCRIPT
+#   Includes:
+#   - Loading Dataset
+#   - Structure & Info
+#   - Missing Value Check
+#   - Summary Statistics
+#   - Histograms
+#   - Boxplots
+#   - Pairplot
+#   - Correlation Heatmap
+# ============================================================
+
+# ------------------------------
+# 1. IMPORT LIBRARIES
+# ------------------------------
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# For better visuals
+sns.set(style="whitegrid")
+
+# ------------------------------
+# 2. LOAD DATASET
+# ------------------------------
+iris = sns.load_dataset("iris")
+print("\n===== IRIS DATA LOADED SUCCESSFULLY =====\n")
+print(iris.head())
+
+# ------------------------------
+# 3. DATASET STRUCTURE
+# ------------------------------
+print("\n===== DATASET SHAPE =====")
+print(iris.shape)
+
+print("\n===== DATASET INFO =====")
+print(iris.info())
+
+# ------------------------------
+# 4. CHECK MISSING VALUES
+# ------------------------------
+print("\n===== MISSING VALUES =====")
+print(iris.isnull().sum())
+
+# ------------------------------
+# 5. SUMMARY STATISTICS
+# ------------------------------
+print("\n===== SUMMARY STATISTICS =====")
+print(iris.describe())
+
+# ------------------------------
+# 6. HISTOGRAMS (FEATURE DISTRIBUTION)
+# ------------------------------
+plt.figure(figsize=(10,6))
+iris.hist(figsize=(10,6), bins=15)
+plt.suptitle("Feature Distribution - Iris Dataset", fontsize=16)
+plt.show()
+
+# ------------------------------
+# 7. BOXPLOTS (OUTLIERS CHECK)
+# ------------------------------
+plt.figure(figsize=(10,6))
+sns.boxplot(data=iris)
+plt.title("Boxplot of Iris Features")
+plt.show()
+
+# ------------------------------
+# 8. PAIRPLOT (RELATIONSHIPS)
+# ------------------------------
+sns.pairplot(iris, hue="species")
+plt.suptitle("Pairplot - Feature Relationships", y=1.02)
+plt.show()
+
+# ------------------------------
+# 9. CORRELATION HEATMAP
+# ------------------------------
+plt.figure(figsize=(8,5))
+sns.heatmap(iris.corr(), annot=True, cmap="coolwarm")
+plt.title("Correlation Heatmap")
+plt.show()
+
+# ============================================================
+#   END OF IRIS DATA EXP
