@@ -1,0 +1,77 @@
+# import libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+# Load Dataset
+import pandas as pd
+import os
+
+path = None  # Initialize path variable
+
+# Automatically find the train.csv file
+for root, dirs, files in os.walk('/'):
+    if 'train.csv' in files:
+        path = os.path.join(root, 'train.csv')
+        break
+
+if path:
+    print("Found at:", path)
+    df = pd.read_csv(path)
+    df.head()
+else:
+
+# Data Understanding
+df.info()
+df.describe()
+df.isnull().sum() 
+
+# Data Cleaning
+df['Age'].fillna(df['Age'].median(), inplace=True)
+df['Embarked'].fillna(df['Embarked'].mode()[0], inplace=True)
+df['Cabin'].fillna("Unknown", inplace=True)
+
+df.isnull().sum()
+
+# Exploratory Data Analysis
+sns.countplot(x='Survived', data=df)
+plt.show()
+
+sns.countplot(x='Sex', hue='Survived', data=df)
+plt.show()
+
+sns.countplot(x='Pclass', hue='Survived', data=df)
+plt.show()
+
+# Feature Engineering
+df['FamilySize'] = df['SibSp'] + df['Parch'] + 1
+df['Title'] = df['Name'].str.extract(' ([A-Za-z]+)\.', expand=False)
+
+df[['Name','Title','FamilySize']].head()
+
+# Encode Categorical Features
+le = LabelEncoder()
+
+df['Sex'] = le.fit_transform(df['Sex'])
+df['Embarked'] = le.fit_transform(df['Embarked'])
+df['Title'] = le.fit_transform(df['Title'])
+
+# Train-Test Split
+features = ['Pclass','Sex','Age','Fare','FamilySize','Embarked','Title']
+X = df[features]
+y = df['Survived']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Model Training
+model = RandomForestClassifier()
+model.fit(X_train, y_train)
+
+pred = model.predict(X_test)
+accuracy_score(y_test, pred)
